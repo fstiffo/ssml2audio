@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using CommandLine;
 using Windows.Media.SpeechSynthesis;
 using Windows.Storage;
 using Windows.Storage.Streams;
@@ -15,44 +17,48 @@ namespace ssml2audio
 {
     class Program
     {
+
+        class Options
+        {
+            [Option('r', "read", Required = true, HelpText = "Input files to be processed.")]
+            public IEnumerable<string> InputFiles { get; set; }
+
+            // Omitting long name, defaults to name of property, ie "--verbose"
+            [Option(
+              Default = false,
+              HelpText = "Prints all messages to standard output.")]
+            public bool Verbose { get; set; }
+
+            [Option("stdin",
+              Default = false,
+              HelpText = "Read from stdin")]
+            public bool stdin { get; set; }
+
+            [Value(0, MetaName = "offset", HelpText = "File offset.")]
+            public long? Offset { get; set; }
+        }
+
         static async System.Threading.Tasks.Task Main(string[] args)
         {
 
-            // The media object for controlling and playing audio.
-            // Windows.UI.Xaml.Controls.MediaElement mediaElement = this.media;
-
-            // The object for controlling the speech synthesis engine (voice).
-            var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-
-            // Generate the audio stream from plain text.
-            using (SpeechSynthesisStream stream = await synth.SynthesizeTextToStreamAsync("Hello World"))
+            switch (args.Length)
             {
-                // Get the app's local folder.
-                var path = new FileInfo(Environment.GetCommandLineArgs()[0]).DirectoryName;
-                var user = (await Windows.System.User.FindAllAsync())[0];
-                StorageFolder localFolder = await StorageFolder.GetFolderFromPathForUserAsync(user, path);
+                case 0:
+                    Console.WriteLine("Hello - no args");
+                    break;
+                case 1:
+                    await TextToSpeech.SSML2AudioFile(args[0]);
+                    break;
+                default:
+                    {
+                        for (int i = 0; i < args.Length; i++)
+                        {
+                            await TextToSpeech.SSML2AudioFile(args[i]);
+                            Console.WriteLine($"arg[{i}] = {args[i]}");
+                        }
 
-                // Send the stream to the audio file.
-                using (var reader = new DataReader(stream))
-                {
-                    await reader.LoadAsync((uint)stream.Size);
-
-                    var sampleFile = await localFolder.CreateFileAsync("sample.wav", CreationCollisionOption.ReplaceExisting);
-                    await FileIO.WriteBufferAsync(sampleFile, reader.ReadBuffer((uint)stream.Size));
-                }
-            }
-
-
-            if (args.Length == 0)
-            {
-                Console.WriteLine("Hello - no args");
-            }
-            else
-            {
-                for (int i = 0; i < args.Length; i++)
-                {
-                    Console.WriteLine($"arg[{i}] = {args[i]}");
-                }
+                        break;
+                    }
             }
             Console.WriteLine("Press a key to continue: ");
             Console.ReadLine();
